@@ -1,0 +1,167 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Negative Space Programming: Define What Should Never Happen
+
+## Core Philosophy
+
+Negative Space Programming means explicitly defining and enforcing what should **never** happen in your code, not just what should happen. Like negative space in art that gives shape to positive elements, defining what your code refuses to tolerate gives clear boundaries to valid behavior.
+
+## Implementation Strategy
+
+### 1. Identify Critical Invariants
+For every function, especially private/internal ones, identify assumptions that MUST hold:
+- Required state conditions
+- Expected data properties  
+- Valid parameter ranges
+- Proper calling sequences
+- Business rule constraints
+
+### 2. Fail Fast with Context
+When invariants are violated, crash immediately with rich debugging information:
+
+```python
+def process_payment(order):
+    # Negative space: Define what should NEVER happen
+    if not order.is_validated:
+        crash(f"INVARIANT VIOLATED: Unvalidated order in payment processing. "
+              f"OrderId: {order.id}, Status: {order.status}, "
+              f"ValidationFlags: {order.validation_flags}")
+    
+    if order.amount <= 0:
+        crash(f"INVARIANT VIOLATED: Invalid payment amount. "
+              f"Amount: {order.amount}, OrderId: {order.id}")
+    
+    if order.status != 'pending':
+        crash(f"INVARIANT VIOLATED: Payment processing on wrong status. "
+              f"Expected: 'pending', Actual: '{order.status}', OrderId: {order.id}")
+    
+    # Positive space: What should happen
+    charge_payment(order)
+    order.status = 'paid'
+```
+
+### 3. Distinguish from Input Validation
+**Input validation** handles expected bad data gracefully:
+```python
+def create_user(email, password):
+    if not email or '@' not in email:
+        return {"error": "Invalid email format"}  # Handle gracefully
+```
+
+**Invariant checking** catches programmer errors aggressively:
+```python
+def update_user_balance(user, amount):
+    # This should NEVER happen if our program logic is correct
+    if user.account_status == 'deleted':
+        crash(f"INVARIANT VIOLATED: Attempted balance update on deleted user. "
+              f"UserId: {user.id}, Status: {user.account_status}")
+```
+
+## When to Apply Negative Space Programming
+
+### Always Apply For:
+- **Private/internal functions** with specific calling requirements
+- **Critical business logic** where assumptions must hold
+- **State transitions** that should only occur in specific sequences
+- **Data structure integrity** that must be maintained
+- **Resource management** where cleanup is critical
+
+### Example Patterns:
+
+**Database Operations:**
+```python
+def execute_transaction(queries):
+    if not is_transaction_active():
+        crash("INVARIANT VIOLATED: Transaction execution without active transaction")
+    
+    if len(queries) == 0:
+        crash("INVARIANT VIOLATED: Empty query list in transaction")
+```
+
+**State Machines:**
+```python
+def transition_to_state(machine, new_state):
+    if new_state not in machine.valid_transitions[machine.current_state]:
+        crash(f"INVARIANT VIOLATED: Invalid state transition. "
+              f"From: {machine.current_state}, To: {new_state}, "
+              f"Valid: {machine.valid_transitions[machine.current_state]}")
+```
+
+**Resource Management:**
+```python
+def release_resource(resource):
+    if resource.ref_count <= 0:
+        crash(f"INVARIANT VIOLATED: Releasing resource with invalid ref count. "
+              f"ResourceId: {resource.id}, RefCount: {resource.ref_count}")
+```
+
+## Implementation Guidelines
+
+### 1. Crash Function
+Create a standardized crash function that:
+- Logs the violation with full context
+- Captures current system state
+- Terminates execution immediately
+- Provides actionable debugging information
+
+```python
+def crash(message, context=None):
+    error_data = {
+        "timestamp": datetime.now().isoformat(),
+        "message": message,
+        "context": context,
+        "stack_trace": traceback.format_stack(),
+        "system_state": capture_relevant_state()
+    }
+    logger.critical("INVARIANT VIOLATION", extra=error_data)
+    sys.exit(1)
+```
+
+### 2. Context Capture
+Always include:
+- Relevant object states
+- Function parameters
+- Current system conditions
+- Related entity IDs
+- Timing information
+
+### 3. Clear Violation Messages
+Structure messages as:
+```
+INVARIANT VIOLATED: [What rule was broken]. [Current state]. [Expected state].
+```
+
+## Benefits of This Approach
+
+1. **Immediate Problem Detection**: Catch issues at their source
+2. **Rich Debugging Context**: Know exactly what led to the problem
+3. **Code Reliability**: Explicit assumptions prevent silent failures
+4. **Faster Development**: Clear error messages speed up debugging
+5. **System Integrity**: Prevent corrupted state from propagating
+
+## Anti-Patterns to Avoid
+
+- Using invariants for expected user input validation
+- Continuing execution after invariant violations
+- Vague error messages without context
+- Checking invariants in performance-critical tight loops
+- Overusing invariants for minor edge cases
+
+## Testing Invariants
+
+Write tests that specifically try to violate invariants:
+
+```python
+def test_payment_processing_invariants():
+    with pytest.raises(SystemExit):  # Expecting crash
+        process_payment(unvalidated_order)
+    
+    with pytest.raises(SystemExit):
+        process_payment(completed_order)
+```
+
+Remember: The goal is to make impossible states unrepresentable and catch programmer errors before they cause mysterious bugs downstream.
+

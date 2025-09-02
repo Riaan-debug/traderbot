@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  # Backend Service (Node.js + Express)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: trading-backend
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - trading-network
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Service (React + Tailwind)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: trading-frontend
+    ports:
+      - "3002:3002"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5001
+      - REACT_APP_N8N_URL=http://localhost:5678
+    networks:
+      - trading-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # n8n Automation Service
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: trading-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_USER_MANAGEMENT_DISABLED=true
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_ENCRYPTION_KEY=your-encryption-key-here
+      - N8N_EDITOR_BASE_URL=http://localhost:5678
+      - N8N_WEBHOOK_URL=http://localhost:5678
+      - N8N_EMAIL_MODE=smtp
+      - N8N_SMTP_HOST=smtp.gmail.com
+      - N8N_SMTP_PORT=587
+      - N8N_SMTP_USER=your-email@gmail.com
+      - N8N_SMTP_PASS=your-app-password
+      - N8N_TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+      - ./n8n_workflows:/home/node/.n8n/workflows
+    networks:
+      - trading-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5678"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  trading-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  n8n_data:
+    driver: local
+  n8n_workflows:
+    driver: local
+

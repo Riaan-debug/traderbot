@@ -1,0 +1,192 @@
+{
+  "name": "Monthly DCA Trading Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Monthly DCA Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "url": "http://backend:5000/api/trading/portfolio",
+        "options": {}
+      },
+      "id": "get-portfolio",
+      "name": "Get Portfolio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-cash",
+              "leftValue": "={{ $json.data.account.cash }}",
+              "rightValue": 10,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-cash",
+      "name": "Check Available Cash",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "http://backend:5000/api/trading/trade",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "symbol",
+              "value": "SPY"
+            },
+            {
+              "name": "qty",
+              "value": "0.1"
+            },
+            {
+              "name": "side",
+              "value": "buy"
+            },
+            {
+              "name": "type",
+              "value": "market"
+            },
+            {
+              "name": "time_in_force",
+              "value": "day"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "place-trade",
+      "name": "Place DCA Trade",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🔄 Monthly DCA Trade Executed\n\n📊 **Portfolio Update**\n💰 Portfolio Value: ${{ $('Get Portfolio').item.json.data.account.portfolio_value }}\n💵 Available Cash: ${{ $('Get Portfolio').item.json.data.account.cash }}\n\n📈 **Trade Details**\n🟢 Bought 0.1 shares of SPY\n📅 Date: {{ new Date().toLocaleDateString() }}\n\n📋 **Current Holdings**\n{{ $('Get Portfolio').item.json.data.positions.map(pos => `• ${pos.symbol}: ${pos.qty} shares`).join('\\n') }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-notification",
+      "name": "Send Telegram Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "❌ Monthly DCA Trade Failed\n\n💰 Available Cash: ${{ $('Get Portfolio').item.json.data.account.cash }}\n⚠️ Insufficient funds for $10 DCA trade\n\nPlease fund your account or adjust the DCA amount.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "insufficient-funds-notification",
+      "name": "Insufficient Funds Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Monthly DCA Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Portfolio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Portfolio": {
+      "main": [
+        [
+          {
+            "node": "Check Available Cash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Available Cash": {
+      "main": [
+        [
+          {
+            "node": "Place DCA Trade",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insufficient Funds Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Place DCA Trade": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "instanceId": "local"
+  },
+  "id": "monthly-dca-workflow",
+  "tags": ["trading", "automation", "dca"]
+}
+
