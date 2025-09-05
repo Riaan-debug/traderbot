@@ -30,7 +30,23 @@ const AutomationDashboard = () => {
   const fetchAutomationStatus = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/automation/status`);
-      setAutomationStatus(response.data.data);
+      const status = response.data.data;
+      setAutomationStatus(status);
+      
+      // Update trading parameters from backend
+      if (status) {
+        setTradingParams({
+          minConfidence: Math.round(status.minConfidence * 100), // Convert from decimal to percentage
+          maxPositionSize: status.maxPositionSize,
+          rsiOversold: status.rsiOversold || 30,
+          rsiOverbought: status.rsiOverbought || 70
+        });
+        
+        // Update watchlist from backend
+        if (status.watchedSymbols && status.watchedSymbols.length > 0) {
+          setWatchlist(status.watchedSymbols.join(', '));
+        }
+      }
     } catch (error) {
       console.error('Error fetching automation status:', error);
     }

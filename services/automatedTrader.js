@@ -174,11 +174,16 @@ class AutomatedTrader {
    * Get current trading status
    */
   getStatus() {
+    // Get RSI thresholds from signal generator
+    const signalGenerator = require('./signalGenerator');
+    
     return {
       isRunning: this.isRunning,
       watchedSymbols: this.watchedSymbols,
       maxPositionSize: this.maxPositionSize,
       minConfidence: this.minConfidence,
+      rsiOversold: signalGenerator.rsiOversold,
+      rsiOverbought: signalGenerator.rsiOverbought,
       nextCheck: this.tradingInterval ? 'Running' : 'Stopped'
     };
   }
