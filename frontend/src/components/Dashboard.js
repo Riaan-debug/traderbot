@@ -67,7 +67,7 @@ const Dashboard = () => {
       link.href = url;
       
       // Set filename based on format
-      const extension = 'json';
+      const extension = 'xlsx';
       const periodLabel = exportPeriod.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
       link.setAttribute('download', `trade-history-${periodLabel}-${new Date().toISOString().split('T')[0]}.${extension}`);
       

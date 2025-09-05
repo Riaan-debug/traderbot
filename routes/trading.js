@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const alpacaApi = require('../config/alpaca');
 const logger = require('../utils/logger');
+const XLSX = require('xlsx');
 
 const router = express.Router();
 
@@ -526,17 +527,42 @@ router.get('/export', async (req, res) => {
     }));
     
     if (format === 'excel') {
-      // For now, return JSON data with .json extension
-      // In a real implementation, you'd use a library like 'xlsx' to create Excel files
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="trade-history-${period}-${new Date().toISOString().split('T')[0]}.json"`);
-      res.json({
-        success: true,
-        data: orders,
-        period: period,
-        exported_at: new Date().toISOString(),
-        total_orders: orders.length
-      });
+      // Create Excel workbook
+      const workbook = XLSX.utils.book_new();
+      
+      // Prepare data for Excel
+      const excelData = orders.map(order => ({
+        'Order ID': order.id,
+        'Symbol': order.symbol,
+        'Side': order.side,
+        'Quantity': order.qty,
+        'Price': order.filled_avg_price || order.limit_price || order.stop_price || 'Market',
+        'Status': order.status,
+        'Order Type': order.type,
+        'Time in Force': order.time_in_force || 'N/A',
+        'Created At': new Date(order.created_at).toLocaleString(),
+        'Filled At': order.filled_at ? new Date(order.filled_at).toLocaleString() : 'Not Filled',
+        'Filled Quantity': order.filled_qty || 0,
+        'Remaining Quantity': order.qty - (order.filled_qty || 0),
+        'Client Order ID': order.client_order_id || 'N/A'
+      }));
+      
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Trade History');
+      
+      // Generate Excel buffer
+      const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      
+      // Set headers for Excel download
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="trade-history-${period}-${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.setHeader('Content-Length', excelBuffer.length);
+      
+      // Send Excel file
+      res.send(excelBuffer);
     } else {
       res.json({
         success: true,
