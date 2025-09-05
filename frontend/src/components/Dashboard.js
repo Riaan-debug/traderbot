@@ -6,6 +6,8 @@ const Dashboard = () => {
   const [recentTrades, setRecentTrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportPeriod, setExportPeriod] = useState('1day');
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
@@ -45,6 +47,41 @@ const Dashboard = () => {
     if (!value) return '0.00%';
     const num = parseFloat(value);
     return `${num >= 0 ? '+' : ''}${num.toFixed(2)}%`;
+  };
+
+  const handleExport = async () => {
+    try {
+      setExportLoading(true);
+      
+      const response = await axios.get(`${API_BASE_URL}/api/trading/export`, {
+        params: {
+          period: exportPeriod,
+          format: 'excel'
+        },
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Set filename based on format
+      const extension = 'json';
+      const periodLabel = exportPeriod.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+      link.setAttribute('download', `trade-history-${periodLabel}-${new Date().toISOString().split('T')[0]}.${extension}`);
+      
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+    } catch (err) {
+      console.error('Error exporting trades:', err);
+      setError('Failed to export trades. Please try again.');
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   if (loading) {
@@ -236,6 +273,68 @@ const Dashboard = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Export Section */}
+      {recentTrades && recentTrades.length > 0 && (
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Export Trade History</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Time Period Selection */}
+            <div>
+              <label htmlFor="export-period" className="block text-sm font-medium text-gray-700 mb-2">
+                Time Period
+              </label>
+              <select
+                id="export-period"
+                value={exportPeriod}
+                onChange={(e) => setExportPeriod(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="10min">Last 10 minutes</option>
+                <option value="30min">Last 30 minutes</option>
+                <option value="1hour">Last hour</option>
+                <option value="12hours">Last 12 hours</option>
+                <option value="1day">Last day</option>
+                <option value="1week">Last week</option>
+                <option value="1month">Last month</option>
+              </select>
+            </div>
+
+            {/* Export Button */}
+            <div className="flex items-end">
+              <button
+                onClick={handleExport}
+                disabled={exportLoading}
+                className="w-full bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {exportLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Export Trades
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+          
+          <div className="mt-4 text-sm text-gray-600">
+            <p>Export your trade history for the selected time period as an Excel file.</p>
           </div>
         </div>
       )}

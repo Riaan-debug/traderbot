@@ -163,9 +163,6 @@ const TradePage = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="market">Market Order</option>
-              <option value="limit">Limit Order</option>
-              <option value="stop">Stop Order</option>
-              <option value="stop_limit">Stop Limit Order</option>
             </select>
             <p className="mt-1 text-sm text-gray-500">
               Market orders execute immediately at current market price

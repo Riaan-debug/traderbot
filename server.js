@@ -7,6 +7,8 @@ const logger = require('./utils/logger');
 
 // Import routes
 const tradingRoutes = require('./routes/trading');
+const signalRoutes = require('./routes/signals');
+const automationRoutes = require('./routes/automation');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -75,6 +77,8 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/trading', tradingRoutes);
+app.use('/api/signals', signalRoutes);
+app.use('/api/automation', automationRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
